@@ -76,6 +76,7 @@ import {
 import { ScrapeUrlResponse } from "../../scraper/scrapeURL";
 import { logScrape } from "../logging/log_job";
 import { FeatureFlag } from "../../scraper/scrapeURL/engines";
+import { uploadJsonToPresignedUrl } from "../../lib/s3-presigned-upload";
 
 configDotenv();
 
@@ -411,6 +412,7 @@ async function processJob(job: NuQJob<ScrapeJobSingleUrls>) {
                   webhook: job.data.webhook,
                   v1: job.data.v1,
                   zeroDataRetention: job.data.zeroDataRetention,
+                  documentUpload: job.data.documentUpload,
                   apiKeyId: job.data.apiKeyId,
                 },
                 jobId,
@@ -555,6 +557,23 @@ async function processJob(job: NuQJob<ScrapeJobSingleUrls>) {
           skipNuq: job.data.skipNuq ?? false,
         },
         false,
+      );
+    }
+
+    const crawledData = {
+      title: data.document.metadata.title,
+      description: data.document.metadata.description,
+      url: data.document.metadata.url,
+      links: data.result.links,
+      markdown: data.document.markdown,
+    };
+
+    if (job.data.documentUpload?.presignedUrl) {
+      await uploadJsonToPresignedUrl(
+        job.data.documentUpload,
+        crawledData,
+        logger,
+        { jobId: job.id, url: job.data.url },
       );
     }
 
@@ -788,6 +807,7 @@ async function addKickoffSitemapJob(
       requestId: sourceJob.data.requestId,
       webhook: sourceJob.data.webhook,
       v1: sourceJob.data.v1,
+      documentUpload: sourceJob.data.documentUpload,
       apiKeyId: sourceJob.data.apiKeyId,
     } satisfies ScrapeJobKickoffSitemap,
     jobId,
@@ -842,6 +862,7 @@ async function processKickoffJob(job: NuQJob<ScrapeJobKickoff>) {
         v1: job.data.v1,
         isCrawlSourceScrape: true,
         zeroDataRetention: job.data.zeroDataRetention,
+        documentUpload: job.data.documentUpload,
         apiKeyId: job.data.apiKeyId,
       },
       jobId,
@@ -929,6 +950,7 @@ async function processKickoffJob(job: NuQJob<ScrapeJobKickoff>) {
             webhook: job.data.webhook,
             v1: job.data.v1,
             zeroDataRetention: job.data.zeroDataRetention,
+            documentUpload: job.data.documentUpload,
             apiKeyId: job.data.apiKeyId,
           },
           priority: jobPriority,
@@ -1037,6 +1059,7 @@ async function processKickoffSitemapJob(job: NuQJob<ScrapeJobKickoffSitemap>) {
           v1: job.data.v1,
           zeroDataRetention:
             job.data.zeroDataRetention || (sc.zeroDataRetention ?? false),
+          documentUpload: job.data.documentUpload,
           apiKeyId: job.data.apiKeyId,
         } satisfies ScrapeJobSingleUrls,
         jobId: uuidv7(),

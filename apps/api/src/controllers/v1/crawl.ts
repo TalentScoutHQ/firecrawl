@@ -76,6 +76,7 @@ export async function crawlController(
     ...req.body,
     url: undefined,
     scrapeOptions: undefined,
+    documentUpload: undefined,
   };
 
   const bodyScrapeOptions =
@@ -175,6 +176,7 @@ export async function crawlController(
       webhook: req.body.webhook,
       v1: true,
       zeroDataRetention: zeroDataRetention || false,
+      documentUpload: req.body.documentUpload,
       apiKeyId: req.acuc?.api_key_id ?? null,
     },
     uuidv7(),

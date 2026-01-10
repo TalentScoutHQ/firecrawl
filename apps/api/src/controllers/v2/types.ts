@@ -886,6 +886,12 @@ export const crawlerOptions = z.strictObject({
 
 type CrawlerOptions = z.infer<typeof crawlerOptions>;
 
+const documentUploadSchema = z.strictObject({
+  presignedUrl: z.string().url(),
+  headers: z.record(z.string(), z.string()).optional(),
+  contentType: z.string().optional(),
+});
+
 const crawlRequestSchemaBase = crawlerOptions.extend({
   url: URL,
   origin: z.string().optional().prefault("api"),
@@ -896,6 +902,7 @@ const crawlRequestSchemaBase = crawlerOptions.extend({
   maxConcurrency: z.int().positive().optional(),
   zeroDataRetention: z.boolean().optional(),
   prompt: z.string().max(10000).optional(),
+  documentUpload: documentUploadSchema.optional(),
 });
 
 export const crawlRequestSchema = strictWithMessage(crawlRequestSchemaBase)
