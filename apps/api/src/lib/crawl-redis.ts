@@ -18,6 +18,11 @@ export type StoredCrawl = {
   createdAt: number;
   maxConcurrency?: number;
   zeroDataRetention?: boolean;
+  documentUpload?: {
+    presignedUrl: string;
+    headers?: Record<string, string>;
+    contentType?: string;
+  };
 };
 
 export async function saveCrawl(id: string, crawl: StoredCrawl) {
