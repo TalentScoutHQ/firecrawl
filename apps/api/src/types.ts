@@ -19,6 +19,11 @@ type ScrapeJobCommon = {
   traceContext?: SerializedTraceContext;
   skipNuq?: boolean;
   requestId?: string;
+  documentUpload?: {
+    presignedUrl: string;
+    headers?: Record<string, string>;
+    contentType?: string;
+  };
 };
 
 export type ScrapeJobData = ScrapeJobCommon &

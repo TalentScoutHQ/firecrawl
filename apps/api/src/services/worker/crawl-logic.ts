@@ -5,12 +5,64 @@ import {
   getCrawlJobs,
   getDoneJobsOrderedLength,
 } from "../../lib/crawl-redis";
-import { getCrawl } from "../../lib/crawl-redis";
+import { getCrawl, StoredCrawl } from "../../lib/crawl-redis";
 import { supabase_service } from "../supabase";
 import { getJobs } from "../../controllers/v1/crawl-status";
 import { logCrawl, logBatchScrape } from "../logging/log_job";
 import { createWebhookSender, WebhookEvent } from "../webhook/index";
 import type { NuQJob } from "./nuq";
+import { uploadJsonToPresignedUrl } from "../../lib/s3-presigned-upload";
+
+async function loadCrawlDocs(crawlId: string) {
+  const jobIDs = await getCrawlJobs(crawlId);
+  const jobs = (await getJobs(jobIDs)).sort(
+    (a, b) => a.timestamp - b.timestamp,
+  );
+
+  return jobs
+    .map(x =>
+      x.returnvalue
+        ? Array.isArray(x.returnvalue)
+          ? x.returnvalue[0]
+          : x.returnvalue
+        : null,
+    )
+    .filter(x => x !== null);
+}
+
+async function uploadAggregateDocs(
+  crawlId: string,
+  sc: StoredCrawl,
+  docs: any[],
+  logger: typeof _logger,
+) {
+  if (!sc.documentUpload?.presignedUrl) {
+    return;
+  }
+
+  logger.info("Uploading aggregated crawl document", {
+    crawlId,
+    docCount: docs.length,
+    url: sc.originUrl,
+  });
+
+  const payload = {
+    id: crawlId,
+    url: sc.originUrl,
+    data: docs,
+  };
+
+  await uploadJsonToPresignedUrl(sc.documentUpload, payload, logger, {
+    jobId: crawlId,
+    url: sc.originUrl,
+  });
+
+  logger.info("Uploaded aggregated crawl document", {
+    crawlId,
+    docCount: docs.length,
+    url: sc.originUrl,
+  });
+}
 
 export async function finishCrawlSuper(job: NuQJob<any>) {
   const crawlId = job.groupId;
@@ -38,25 +90,11 @@ export async function finishCrawlSuper(job: NuQJob<any>) {
   await finishCrawl(crawlId, logger);
 
   if (!job.data.v1) {
-    const jobIDs = await getCrawlJobs(crawlId);
-
-    const jobs = (await getJobs(jobIDs)).sort(
-      (a, b) => a.timestamp - b.timestamp,
-    );
+    const fullDocs = await loadCrawlDocs(crawlId);
     // const jobStatuses = await Promise.all(jobs.map((x) => x.getState()));
     const jobStatus = sc.cancelled // || jobStatuses.some((x) => x === "failed")
       ? "failed"
       : "completed";
-
-    const fullDocs = jobs
-      .map(x =>
-        x.returnvalue
-          ? Array.isArray(x.returnvalue)
-            ? x.returnvalue[0]
-            : x.returnvalue
-          : null,
-      )
-      .filter(x => x !== null);
 
     if (sc.crawlerOptions !== null) {
       await logCrawl(
@@ -94,6 +132,8 @@ export async function finishCrawlSuper(job: NuQJob<any>) {
       );
     }
 
+    await uploadAggregateDocs(crawlId, sc, fullDocs, logger);
+
     // v0 web hooks, call when done with all the data
     if (!job.data.v1) {
       const sender = await createWebhookSender({
@@ -126,6 +166,10 @@ export async function finishCrawlSuper(job: NuQJob<any>) {
     }
   } else {
     const num_docs = await getDoneJobsOrderedLength(crawlId);
+    if (sc.documentUpload?.presignedUrl) {
+      const fullDocs = await loadCrawlDocs(crawlId);
+      await uploadAggregateDocs(crawlId, sc, fullDocs, logger);
+    }
 
     let credits_billed = null;
 
