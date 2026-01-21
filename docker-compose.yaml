@@ -162,4 +162,5 @@ services:
 
 networks:
   backend:
-    driver: bridge
+    external: true
+    name: shared-backend
