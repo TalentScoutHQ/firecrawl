@@ -180,6 +180,7 @@ export async function crawlController(
     originUrl: req.body.url,
     crawlerOptions: toV0CrawlerOptions(finalCrawlerOptions),
     scrapeOptions,
+    documentUpload: req.body.documentUpload,
     internalOptions: {
       disableSmartWaitCache: true,
       teamId: req.auth.team_id,

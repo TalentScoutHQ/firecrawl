@@ -120,6 +120,7 @@ export async function crawlController(
     originUrl: req.body.url,
     crawlerOptions: toLegacyCrawlerOptions(crawlerOptions),
     scrapeOptions,
+    documentUpload: req.body.documentUpload,
     internalOptions: {
       ...internalOptions,
       disableSmartWaitCache: true,

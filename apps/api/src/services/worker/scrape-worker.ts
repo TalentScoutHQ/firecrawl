@@ -568,7 +568,7 @@ async function processJob(job: NuQJob<ScrapeJobSingleUrls>) {
       markdown: data.document.markdown,
     };
 
-    if (job.data.documentUpload?.presignedUrl) {
+    if (job.data.documentUpload?.presignedUrl && !job.data.crawl_id) {
       await uploadJsonToPresignedUrl(
         job.data.documentUpload,
         crawledData,
